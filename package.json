@@ -2,12 +2,13 @@
   "name": "protocolo-alivio-lombar",
   "version": "1.0.0",
   "type": "module",
-  "description": "Protocolo Alívio Lombar",
+  "description": "Protocolo Al\u00edvio Lombar",
   "main": "server.ts",
   "scripts": {
     "dev": "tsx watch server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "test": "npm run build && node --test tests/test_gateway.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

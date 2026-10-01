@@ -1,57 +1,23 @@
 # Protocolo Alívio Lombar
 
-Aplicativo de acompanhamento de um programa de exercícios: frontend responsivo e backend Python/SQLite. Piloto local, com dados fictícios e revisão profissional. Resultados individuais variam.
-
-## Funcionalidades
-
-- Cadastro e autenticação por cookie HttpOnly, proteção de origem e CSRF.
-- Avaliação inicial em três passos, com rascunho persistente.
-- Jornada de quatro módulos e calibração de dor/sono/disposição.
-- Aula individual em blocos, modo foco, temporizador e mídia local autorizada.
-- Diário de dor, esforço e função; registros ausentes explicitados.
-- Acompanhamento de 24h e suspensão por pausa/evento.
-- Painel profissional, fila de revisões e mensagens, editor visual das aulas.
-- Gestão de papéis e atribuição de participantes, com reautenticação.
-- Backup consistente do SQLite e testes de integração.
+Frontend de acompanhamento e backend persistente Python/SQLite, servido por Express para o ambiente Node do AI Studio.
 
 ## Executar
 
-Python 3.13 ou superior, sem dependências externas.
+Node 22+ e Python 3.13+: `npm ci` e `npm run dev`. Acesse a porta 3000.
 
-```sh
-python server.py
-```
+Versão compilada: `npm run build` e `npm start`.
 
-Abra http://127.0.0.1:8080. Para criar a conta administrativa:
+[Configuração e jornada do piloto](docs/PILOTO.md): armazenamento persistente, origem HTTPS, equipe responsável e verificações antes de distribuir um link. O Dockerfile inclui ambos os runtimes; validar seu build no ambiente de hospedagem.
 
-```sh
-python server.py --admin administrador@example.test
-```
-
-A senha é solicitada no terminal. Cadastre contas fictícias pela interface e use Gestão para definir profissionais e atribuições. Aulas e limites individuais são cadastrados pelo profissional no editor visual. Não existem senhas administrativas padrão.
-
-Para ver uma jornada demonstrativa:
-
-```sh
-python seed_demo.py
-```
-
-O comando imprime uma senha aleatória local para uma conta fictícia. Os exemplos não prescrevem exercícios reais.
+A pessoa cria sua conta e segue para a triagem. A equipe revisa antes de liberar aulas. Não existem credenciais administrativas padrão. No mesmo banco, `python server.py --admin EMAIL` cria o administrador.
 
 ## Testes
 
-```sh
-python -m unittest discover -s tests -v
-```
+`npm test` verifica o fluxo pelo Express e persistência após reinício.
 
-## Operação e limites
+`python -m unittest discover -s tests -v` verifica API clínica, permissões, registros e backup.
 
-Consulte [Operação](docs/OPERACAO.md). O servidor escuta somente no computador local. Antes de produção, concluir hospedagem HTTPS, recuperação de conta, MFA profissional, integração de pagamentos/notificações, proteção de backups e revisão clínica/jurídica. SQLite, auditoria e controles implementados não constituem certificação de prontuário ou conformidade regulatória.
+Piloto com identidades fictícias. Cadastro funcionando não significa serviço clínico pronto para dados reais. Consentimento, privacidade, atendimento, conteúdo aprovado, recuperação de conta e infraestrutura dependem da configuração. Sink Score e parâmetros são autorais, sem validação clínica do produto. Vídeos definitivos não incluídos.
 
-Sink Score utiliza uma política autoral individual; não há escore clínico validado. Módulos e desafios dependem de autorização profissional. Vídeos e exercícios definitivos não estão incluídos. O frontend usa Fraunces/Georgia e Inter/system-ui, com fallbacks locais.
-
-Banco, backups, arquivos de mídia, anexos originais e planejamento comercial não fazem parte desta distribuição pública. Não inserir prontuários, credenciais, dados reais ou chaves no repositório.
-
-## Lovable
-
-O aplicativo atual usa JavaScript no frontend e Python no backend. Compatibilidade/importação deve ser verificada na conta escolhida; este repositório não representa uma conexão já ativa com Lovable. Uma migração de stack ou hospedagem depende dessa escolha.
+Não adicionar senhas, banco, backups, anexos ou dados pessoais ao GitHub.
