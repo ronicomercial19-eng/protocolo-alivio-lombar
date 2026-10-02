@@ -6,7 +6,21 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const date=t=>new Date(t*1000).toLocaleString('pt-BR');
 const states={triagem_pendente:'Triagem pendente',em_revisao:'Em revisão profissional',ativo:'Programa ativo',suspenso:'Programa suspenso',encaminhado:'Encaminhamento recomendado'};
 function notice(s){const n=document.querySelector('#notice');n.textContent=s;n.style.display='block';setTimeout(()=>n.style.display='none',6000)}
-async function api(path,body){const r=await fetch('/api/'+path,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json','X-CSRF-Token':me?.csrf||''}:{},body:body?JSON.stringify(body):undefined});const data=await r.json();if(!r.ok)throw Error(data.error);return data}
+async function api(path, body) {
+  const token = await getAuthToken();
+  const headers = body ? { 'Content-Type': 'application/json', 'X-CSRF-Token': me?.csrf || '' } : {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  
+  const r = await fetch('/api/' + path, {
+    method: body ? 'POST' : 'GET',
+    headers,
+    body: body ? JSON.stringify(body) : undefined
+  });
+  
+  const data = await r.json();
+  if (!r.ok) throw Error(data.error);
+  return data;
+}
 async function refresh(){me=await api('me');render()}
 function btn(label,action,cls=''){return `<button type="button" class="${cls}" data-action="${action}">${label}</button>`}
 function bindNotifications() {
@@ -96,4 +110,18 @@ function bindAuth(){
 }
 
 async function submit(e){e.preventDefault();const f=e.target;const b=e.submitter||f.querySelector('button:not([type=button])');if(b)b.disabled=true;try{const d=Object.fromEntries(new FormData(f));if(await staffSubmit(f,d))return;if(await careSubmit(f,d))return;if(typeof protocolSubmit==='function'&&await protocolSubmit(f,d)){return;}if(f.id==='auth'){if(register)d.consent=f.elements.consent.checked;await api(register?'register':'login',d);me=await api('me');await openWorkspace()}else if(f.id==='triage'){await api('triage',d);page='dashboard';notice('Triagem enviada. Aguarde revisão profissional.')}else if(['complete','followup'].includes(f.id)){d.id=Number(f.dataset.id);d.pain=Number(d.pain);await api('session/'+f.id,d);page='diary';notice('Registro salvo.')}else if(f.id==='event'){await api('event',d);page='dashboard';notice('Evento registrado. Sessões suspensas.')}else if(f.id.startsWith('review-')){d.id=Number(f.dataset.id);await api('review',d);patients=await api('patients');notice('Decisão registrada.')}await refresh()}catch(err){notice(err.message);if(b)b.disabled=false}}
-api('me').then(async u=>{me=u;await openWorkspace();render()}).catch(()=>render());
+initAuth(async (user) => {
+  try {
+    // User is logged into Firebase, now log them into the backend session
+    await api('login-google', { email: user.email, name: user.displayName });
+    me = await api('me');
+    await openWorkspace();
+    render();
+  } catch (e) {
+    console.error('Failed to log into backend:', e);
+    render();
+  }
+}, () => {
+  // Not logged in
+  render();
+});
