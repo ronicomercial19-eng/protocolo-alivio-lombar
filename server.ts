@@ -4,6 +4,14 @@ import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
 import { GoogleGenAI, Modality } from "@google/genai";
 import { WebSocketServer } from "ws";
+import { initializeApp } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
+
+// Initialize Firebase Admin
+initializeApp();
+const adminAuth = getAuth();
+const adminDb = getFirestore();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -61,11 +69,19 @@ app.get('/api/me', (req, res) => {
 
 app.post('/api/chat', async (req, res) => {
     try {
-        const { messages } = req.body;
+        const { messages, taskComplexity } = req.body;
+        // Model selection
+        let model = "gemini-3.5-flash";
+        if (taskComplexity === 'complex') model = "gemini-3.1-pro-preview";
+        else if (taskComplexity === 'fast') model = "gemini-3.1-flash-lite";
+
         const response = await ai.models.generateContent({
-            model: "gemini-3.5-flash",
+            model: model,
             contents: messages.map((m: any) => ({ role: m.role, parts: [{ text: m.text }] })),
-            config: { systemInstruction: "Você é um assistente especializado em protocolo de alívio lombar. Analise o progresso, as variáveis do usuário e dê feedback guiado." }
+            config: { 
+                systemInstruction: "Você é um assistente especializado em protocolo de alívio lombar. Analise o progresso, as variáveis do usuário e dê feedback guiado.",
+                tools: [{ googleSearch: {} }]
+            }
         });
         res.json({ text: response.text });
     } catch (e: any) {
