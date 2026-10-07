@@ -1,4 +1,7 @@
 // Interface de revisão do produto. As decisões clínicas continuam nos fluxos existentes.
+function landingHome(){
+  return `<div class="review-landing"><section class="review-hero"><div><span class="eyebrow">Protocolo Alívio Lombar · piloto em preparação</span><h1>Uma jornada clara para cuidar da lombar, passo a passo.</h1><p>O participante relata seu momento, o médico decide sobre a orientação individual e a equipe acompanha a resposta. O conteúdo e os critérios finais ainda passam por revisão profissional.</p><div class="review-tags"><span>Triagem</span><span>Decisão médica</span><span>Sessões orientadas</span><span>Resposta em 24h</span></div><div class="review-landing-actions">${btn('Criar conta de teste','signup')}${btn('Entrar na minha área','login','secondary')}</div></div><aside class="review-warning"><strong>Antes de usar</strong><p>Este ambiente é um piloto técnico. Use dados fictícios. Uma conta criada não equivale a avaliação, prescrição ou autorização para fazer exercícios.</p><p>Oferta proposta: R$ 697 · contratação indisponível.</p></aside></section><section class="review-section"><div class="review-heading"><span class="eyebrow">Como funciona</span><h2>Uma experiência, quatro responsabilidades.</h2></div><div class="review-personas">${[['Paciente','Relata sintomas, recebe orientação liberada e registra a resposta.'],['Médico','Analisa critérios, decide e documenta a indicação individual.'],['Educação física','Observa a execução e propõe adaptações ao médico.'],['Gestão','Organiza convites, responsáveis e a capacidade de atendimento.']].map(([title,detail],i)=>`<article><span>0${i+1}</span><h3>${title}</h3><p>${detail}</p></article>`).join('')}</div></section><section class="review-note"><strong>Limite da proposta:</strong> referências científicas podem orientar componentes do cuidado. A sequência, os parâmetros e o produto completo não têm eficácia ou segurança clínica demonstrada nesta versão.</section></div>`;
+}
 function medicalGuide(){
   const latest=new Map();
   for(const item of evaluations)if(!latest.has(item.item))latest.set(item.item,item);
@@ -41,6 +44,14 @@ function medicalGuide(){
 function bindReviewUI(){
   const main=app.querySelector('main');
   if(!main)return;
+  if(page==='dashboard'&&me?.role==='participant'){
+    const current={triagem_pendente:0,em_revisao:1,ativo:2,suspenso:1,encaminhado:1}[me.state]??0;
+    const strip=document.createElement('section');
+    strip.className='patient-journey';
+    strip.setAttribute('aria-label','Etapas da jornada');
+    strip.innerHTML='<strong>Sua jornada</strong><ol>'+['Sua avaliação','Revisão profissional','Aulas liberadas','Registros e retorno'].map((label,i)=>`<li class="${i<=current?'reached':''}" ${i===current?'aria-current="step"':''}><span>${i+1}</span>${label}</li>`).join('')+'</ol><p>O estado da conta mostra etapas do sistema. Somente uma decisão individual registrada pela equipe autoriza aulas.</p>';
+    main.insertBefore(strip,main.firstChild);
+  }
   if(page==='team'){
     const cases=[...main.querySelectorAll('.patient-case')];
     const bar=document.createElement('section');

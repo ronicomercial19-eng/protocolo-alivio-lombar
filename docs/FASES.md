@@ -53,8 +53,9 @@ O link deve permitir que uma conta fictícia percorra cadastro, triagem, atribui
 ## UI por persona — implementação no Git
 
 - [x] Médico: guia visual com escopo, jornada, matriz de segurança, responsabilidades, limites da evidência e parecer persistente por item.
+- [x] Entrada pública do app: apresentação das quatro responsabilidades, caminho do piloto e limites de uso antes do cadastro.
 - [x] Médico: fila de casos atribuídos com pesquisa local, eventos e mensagens destacados.
-- [x] Paciente: cadastro, triagem, aulas individualizadas, diário, registro imediato e de 24 horas, pausa e ajuda.
+- [x] Paciente: cadastro, triagem, aulas individualizadas, diário, registro imediato e de 24 horas, pausa, ajuda e indicação visual da etapa atual.
 - [x] Educação física: casos atribuídos, plano vigente, registros e observações para o médico, com limite de atuação explícito.
 - [x] Gestão: atribuição de responsáveis, papéis, métricas operacionais e simulação de capacidade.
 - [ ] Validar em celular no endereço final com os quatro papéis e casos fictícios.
