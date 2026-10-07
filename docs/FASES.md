@@ -42,7 +42,8 @@ Estado em 06/10/2026. Cada caixa só deve ser marcada após verificação no amb
 - [x] Mostrar métricas operacionais reais e simular o tempo da primeira revisão para cenários como 697 solicitações.
 - [x] Permitir lotes de convites únicos quando o acesso por convite estiver ativado no servidor.
 - [ ] Preparar consentimento e privacidade para dados reais, recuperação de conta, suporte e backups protegidos.
-- [ ] Medir convite → cadastro → triagem → liberação → sessão → acompanhamento, sem chamar adesão de eficácia.
+- [x] Exibir contagens operacionais de convite, cadastro, triagem, liberação, sessão e acompanhamento, sem chamar adesão de eficácia ou apresentar os marcos como coorte/conversão.
+- [ ] Definir uma coorte de campanha e medir taxas e tempos entre marcos antes de avaliar conversão real.
 - [ ] Testar carga, disponibilidade, restauração de backup e alertas antes de abrir a oferta em escala.
 - [ ] Ampliar em lotes, acompanhando abandonos, eventos, tempo de resposta e capacidade da equipe.
 

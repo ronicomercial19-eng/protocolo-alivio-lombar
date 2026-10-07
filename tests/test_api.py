@@ -41,6 +41,9 @@ class API(unittest.TestCase):
         metrics=self.call(admin,'admin/metrics')[1]
         self.assertGreaterEqual(metrics['participants'],1)
         self.assertGreaterEqual(metrics['states']['em_revisao'],1)
+        self.assertGreaterEqual(metrics['funnel']['registered'],metrics['funnel']['triaged'])
+        self.assertGreaterEqual(metrics['funnel']['triaged'],1)
+        self.assertEqual(metrics['funnel']['answeredFollowup'],0)
     def test_educator_cannot_release_clinical_care(self):
         educator,patient,admin=self.client(),self.client(),self.client()
         self.assertEqual(self.call(educator,'register',{'name':'Educador fictício','email':'educator@example.test','password':'long-test-password','consent':True})[0],200)

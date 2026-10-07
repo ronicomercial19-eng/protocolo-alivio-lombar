@@ -70,5 +70,18 @@ function bindReviewUI(){
       ?'<strong>Limite da sua atuação</strong><p>Registre a execução e proponha adaptações. A decisão de liberar, pausar ou retomar aulas fica com o médico responsável.</p>'
       :'<strong>Visão operacional</strong><p>As contagens ajudam a dimensionar a fila; não representam adesão clínica, melhora ou previsão de vendas.</p>';
     main.insertBefore(intro,main.firstChild);
+    if(page==='management'&&adminMetrics?.funnel){
+      const f=adminMetrics.funnel;
+      const milestones=[
+        ['Convites emitidos',f.invitesCreated],['Convites usados',f.invitesUsed],
+        ['Contas participantes',f.registered],['Triagens enviadas',f.triaged],
+        ['Já ativados',f.everActivated],['Fizeram sessão',f.completedSession],
+        ['Responderam em 24h',f.answeredFollowup]
+      ];
+      const section=document.createElement('section');
+      section.className='review-section';
+      section.innerHTML='<div class="review-heading"><span class="eyebrow">Marcos do piloto</span><h2>Da entrada ao acompanhamento</h2><p>Contagens de pessoas distintas por marco. Convites são opcionais; estas colunas não são uma taxa de conversão nem uma mesma coorte.</p></div><div class="review-milestones">'+milestones.map(([label,value],i)=>`<article><span>0${i+1}</span><strong>${esc(value)}</strong><small>${label}</small></article>`).join('')+'</div>';
+      main.querySelector('.cards')?.insertAdjacentElement('afterend',section);
+    }
   }
 }

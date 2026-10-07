@@ -211,7 +211,16 @@ class Handler(BaseHTTPRequestHandler):
                     sessions=db.execute('SELECT count(*) AS total,count(completed) AS completed,count(followup) AS followups FROM sessions').fetchone()
                     missing=db.execute("SELECT count(*) FROM records WHERE kind='followup' AND json_extract(payload,'$.response')='missing'").fetchone()[0]
                     unassigned=db.execute("SELECT count(*) FROM users u LEFT JOIN assignments a ON a.user_id=u.id WHERE u.role='participant' AND a.user_id IS NULL").fetchone()[0]
-                    return self.send(200,{'participants':sum(states.values()),'states':states,'unassigned':unassigned,'sessions':dict(sessions),'missingFollowups':missing})
+                    funnel={
+                        'invitesCreated':db.execute('SELECT count(*) FROM invite_codes').fetchone()[0],
+                        'invitesUsed':db.execute('SELECT count(*) FROM invite_codes WHERE consumed_by IS NOT NULL').fetchone()[0],
+                        'registered':sum(states.values()),
+                        'triaged':db.execute("SELECT count(DISTINCT r.user_id) FROM records r JOIN users u ON u.id=r.user_id WHERE u.role='participant' AND r.kind='triage'").fetchone()[0],
+                        'everActivated':db.execute("SELECT count(DISTINCT r.user_id) FROM records r JOIN users u ON u.id=r.user_id WHERE u.role='participant' AND r.kind='review' AND json_extract(r.payload,'$.state')='ativo'").fetchone()[0],
+                        'completedSession':db.execute("SELECT count(DISTINCT s.user_id) FROM sessions s JOIN users u ON u.id=s.user_id WHERE u.role='participant' AND s.completed IS NOT NULL").fetchone()[0],
+                        'answeredFollowup':db.execute("SELECT count(DISTINCT r.user_id) FROM records r JOIN users u ON u.id=r.user_id WHERE u.role='participant' AND r.kind='followup' AND json_extract(r.payload,'$.response')='answered'").fetchone()[0],
+                    }
+                    return self.send(200,{'participants':sum(states.values()),'states':states,'unassigned':unassigned,'sessions':dict(sessions),'missingFollowups':missing,'funnel':funnel})
                 if self.path in ('/api/admin/role','/api/admin/assign','/api/admin/assign-educator') and self.command=='POST':
                     if user['role']!='admin': raise ApiError(403,'Acesso de administração necessário.')
                     supplied=str(body.get('password',''))
