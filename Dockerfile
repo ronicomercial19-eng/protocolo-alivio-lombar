@@ -12,7 +12,7 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY package.json server.py backup.py ./
 COPY web ./web
-RUN useradd --uid 10001 --create-home appuser && mkdir -p /app/data && chown -R appuser /app
+RUN useradd --uid 10001 --create-home appuser && mkdir -p /app/data /app/media && chown -R appuser /app
 USER appuser
 ENV PORT=3000 APP_DB=/app/data/app.sqlite3
 EXPOSE 3000

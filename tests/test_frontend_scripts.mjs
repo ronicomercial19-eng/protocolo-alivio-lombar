@@ -27,5 +27,7 @@ test('scripts da interface compartilham funções da entrada e do guia', () => {
     vm.runInContext(source, context, { filename: path });
   }
   assert.match(vm.runInContext('landingHome()', context), /Uma experiência, quatro responsabilidades/);
-  assert.match(vm.runInContext('medicalGuide()', context), /Parecer por item/);
+  const guide = vm.runInContext('medicalGuide()', context);
+  assert.match(guide, /Parecer por item/);
+  assert.equal((guide.match(/Produção pendente/g) || []).length, 9);
 });

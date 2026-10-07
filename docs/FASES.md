@@ -32,6 +32,7 @@ Estado em 06/10/2026. Cada caixa só deve ser marcada após verificação no amb
 
 - [ ] Fechar com a equipe a sequência inicial de nove sessões, dose, alternativas e condições de progressão.
 - [x] Criar matriz de produção para nove sessões, toda marcada como pendente de conteúdo e aprovação.
+- [x] Reservar na UI médica nove espaços de produção pendente e mostrar o caminho técnico de mídia, sem simular aprovação.
 - [ ] Aprovar roteiros, gravar e carregar vídeos, verificar acesso em celular e conexão lenta.
 - [ ] Executar o piloto com uma pessoa indicada pelo médico, após autorização e infraestrutura adequada.
 - [ ] Revisar a experiência e a resposta após as duas primeiras sessões antes de ampliar convites.
@@ -42,6 +43,7 @@ Estado em 06/10/2026. Cada caixa só deve ser marcada após verificação no amb
 - [x] Mostrar métricas operacionais reais e simular o tempo da primeira revisão para cenários como 697 solicitações.
 - [x] Permitir lotes de convites únicos quando o acesso por convite estiver ativado no servidor.
 - [ ] Preparar consentimento e privacidade para dados reais, recuperação de conta, suporte e backups protegidos.
+- [x] Informar na UI que a mensagem interna não é canal de urgência e que o suporte externo ainda não foi configurado.
 - [x] Exibir contagens operacionais de convite, cadastro, triagem, liberação, sessão e acompanhamento, sem chamar adesão de eficácia ou apresentar os marcos como coorte/conversão.
 - [ ] Definir uma coorte de campanha e medir taxas e tempos entre marcos antes de avaliar conversão real.
 - [ ] Testar carga, disponibilidade, restauração de backup e alertas antes de abrir a oferta em escala.
@@ -62,3 +64,4 @@ O link deve permitir que uma conta fictícia percorra cadastro, triagem, atribui
 - [ ] Validar em celular no endereço final com os quatro papéis e casos fictícios.
 - [ ] Concluir e aprovar vídeos, dose, alternativas, critérios clínicos e canal real de suporte antes de pacientes reais.
 - [ ] Auditar referências completas e vincular cada alegação do produto à evidência apropriada.
+- [x] Checar que o endereço público Lovable responde; registrar que ele ainda não publica esta implementação Git.

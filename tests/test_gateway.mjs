@@ -29,7 +29,7 @@ test('cadastro → sessão → triagem → fila clínica, com persistência e CS
   };
   try {
     await start();
-    for (const asset of ['/', '/app.js', '/care.js', '/staff.js', '/medical.js', '/educator.js', '/startup.js', '/icon.svg']) {
+    for (const asset of ['/', '/app.js', '/care.js', '/staff.js', '/medical.js', '/educator.js', '/review-ui.js', '/review-ui.css', '/startup.js', '/icon.svg']) {
       assert.equal((await fetch(`http://127.0.0.1:8092${asset}`)).status, 200, asset);
     }
     assert.equal((await call('me')).status, 401);
