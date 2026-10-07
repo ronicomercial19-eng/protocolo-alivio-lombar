@@ -29,6 +29,9 @@ test('cadastro → sessão → triagem → fila clínica, com persistência e CS
   };
   try {
     await start();
+    for (const asset of ['/', '/app.js', '/care.js', '/staff.js', '/medical.js', '/educator.js', '/startup.js', '/icon.svg']) {
+      assert.equal((await fetch(`http://127.0.0.1:8092${asset}`)).status, 200, asset);
+    }
     assert.equal((await call('me')).status, 401);
     assert.equal((await call('unknown')).status, 401); // JSON, never the SPA HTML.
     assert.equal((await call('register', { name: 'Piloto fictício', email: 'pilot@example.test', password: 'fictional-test-password', consent: false })).status, 400);
@@ -38,7 +41,7 @@ test('cadastro → sessão → triagem → fila clínica, com persistência e CS
     assert.equal(me.state, 'triagem_pendente');
     assert.equal(me.careTeam.name, 'Equipe fictícia');
     assert.equal((await call('triage', { duration: '3 meses ou mais', newSymptoms: 'nao', goal: 'Subir escadas' }, 'https://evil.test')).status, 403);
-    assert.equal((await call('triage', { duration: '3 meses ou mais', newSymptoms: 'nao', goal: 'Subir escadas' })).status, 200);
+    assert.equal((await call('triage', { duration: '3 meses ou mais', newSymptoms: 'nao', neurologicConcern: 'nao', seriousCondition: 'nao', goal: 'Subir escadas' })).status, 200);
     assert.equal((await call('me')).body.state, 'em_revisao');
     assert.equal((await call('session/start', {})).status, 403);
     await stop(); await start();

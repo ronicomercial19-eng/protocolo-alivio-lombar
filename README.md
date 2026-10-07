@@ -10,7 +10,7 @@ Versão compilada: `npm run build` e `npm start`.
 
 [Configuração e jornada do piloto](docs/PILOTO.md): armazenamento persistente, origem HTTPS, equipe responsável e verificações antes de distribuir um link. O Dockerfile inclui ambos os runtimes; validar seu build no ambiente de hospedagem.
 
-A pessoa cria sua conta e segue para a triagem. A equipe revisa antes de liberar aulas. Não existem credenciais administrativas padrão. No mesmo banco, `python server.py --admin EMAIL` cria o administrador.
+A pessoa cria sua conta e segue para a triagem. O médico atribuído revisa antes de liberar aulas; o profissional de educação física registra observações sem poder liberar o participante. A área médica inclui um guia de avaliação do produto e parecer por item. Gestão mostra métricas operacionais sem acesso aos relatos clínicos. Não existem credenciais administrativas padrão. No mesmo banco, `python server.py --admin EMAIL` cria o administrador.
 
 ## Testes
 
@@ -18,6 +18,6 @@ A pessoa cria sua conta e segue para a triagem. A equipe revisa antes de liberar
 
 `python -m unittest discover -s tests -v` verifica API clínica, permissões, registros e backup.
 
-Piloto com identidades fictícias. Cadastro funcionando não significa serviço clínico pronto para dados reais. Consentimento, privacidade, atendimento, conteúdo aprovado, recuperação de conta e infraestrutura dependem da configuração. Sink Score e parâmetros são autorais, sem validação clínica do produto. Vídeos definitivos não incluídos.
+Piloto com identidades fictícias. Cadastro funcionando não significa serviço clínico pronto para dados reais. Consentimento, privacidade, atendimento, conteúdo aprovado, recuperação de conta e infraestrutura dependem da configuração. Sink Score e parâmetros são autorais, sem validação clínica do produto. Vídeos definitivos não incluídos. [Fases de entrega](docs/FASES.md) e [matriz das nove sessões](docs/SESSOES_01_A_09.md).
 
 Não adicionar senhas, banco, backups, anexos ou dados pessoais ao GitHub.

@@ -25,6 +25,59 @@ class API(unittest.TestCase):
         try:
             with c.open(req) as r:return r.status,json.load(r)
         except urllib.error.HTTPError as e:return e.code,json.load(e)
+    def test_product_evaluation_and_operational_metrics(self):
+        clinician,admin,participant=self.client(),self.client(),self.client()
+        self.assertEqual(self.call(clinician,'login',{'email':'clinic@example.test','password':'long-test-password'})[0],200)
+        self.assertEqual(self.call(admin,'login',{'email':'admin@example.test','password':'long-test-password'})[0],200)
+        self.assertEqual(self.call(participant,'register',{'name':'Avaliação fictícia','email':'evaluation@example.test','password':'long-test-password','consent':True})[0],200)
+        clinician_csrf=self.call(clinician,'me')[1]['csrf']
+        participant_csrf=self.call(participant,'me')[1]['csrf']
+        self.assertEqual(self.call(participant,'evaluation')[0],403)
+        self.assertEqual(self.call(participant,'admin/metrics')[0],403)
+        self.assertEqual(self.call(clinician,'evaluation',{'item':'safety','status':'approved','notes':'Revisão do fluxo fictício'},clinician_csrf)[0],200)
+        self.assertEqual(self.call(clinician,'evaluation')[1][0]['status'],'approved')
+        self.assertEqual(self.call(clinician,'evaluation',{'item':'unknown','status':'approved','notes':'Revisão do fluxo fictício'},clinician_csrf)[0],400)
+        self.assertEqual(self.call(participant,'triage',{'duration':'3 meses','newSymptoms':'nao','neurologicConcern':'nao','seriousCondition':'nao'},participant_csrf)[0],200)
+        metrics=self.call(admin,'admin/metrics')[1]
+        self.assertGreaterEqual(metrics['participants'],1)
+        self.assertGreaterEqual(metrics['states']['em_revisao'],1)
+    def test_educator_cannot_release_clinical_care(self):
+        educator,patient,admin=self.client(),self.client(),self.client()
+        self.assertEqual(self.call(educator,'register',{'name':'Educador fictício','email':'educator@example.test','password':'long-test-password','consent':True})[0],200)
+        educator_id=self.call(educator,'me')[1]['id']
+        self.assertEqual(self.call(patient,'register',{'name':'Paciente educador','email':'educator-patient@example.test','password':'long-test-password','consent':True})[0],200)
+        patient_id=self.call(patient,'me')[1]['id']
+        self.assertEqual(self.call(admin,'login',{'email':'admin@example.test','password':'long-test-password'})[0],200)
+        csrf=self.call(admin,'me')[1]['csrf']
+        self.assertEqual(self.call(admin,'admin/role',{'id':educator_id,'role':'educator','password':'long-test-password'},csrf)[0],200)
+        self.assertEqual(self.call(admin,'admin/assign-educator',{'id':patient_id,'educator':educator_id,'password':'long-test-password'},csrf)[0],200)
+        self.assertEqual(self.call(educator,'login',{'email':'educator@example.test','password':'long-test-password'})[0],200)
+        educator_csrf=self.call(educator,'me')[1]['csrf']
+        self.assertEqual(self.call(educator,'patients')[0],403)
+        self.assertEqual(self.call(educator,'evaluation')[0],403)
+        self.assertEqual(self.call(educator,'review',{'id':patient_id,'state':'ativo','notes':'Tentativa de liberação','plan':'Plano indevido'},educator_csrf)[0],403)
+        self.assertEqual(self.call(educator,'educator/note',{'id':patient_id,'notes':'Observação de execução fictícia'},educator_csrf)[0],200)
+        cases=self.call(educator,'educator/patients')[1]
+        self.assertEqual(len(cases),1)
+        self.assertFalse(any(r['kind']=='triage' for r in cases[0]['records']))
+    def test_neurologic_concern_pauses_until_assessed(self):
+        patient,admin,doctor=self.client(),self.client(),self.client()
+        self.assertEqual(self.call(patient,'register',{'name':'Risco fictício','email':'risk@example.test','password':'long-test-password','consent':True})[0],200)
+        me=self.call(patient,'me')[1]
+        self.assertEqual(self.call(admin,'login',{'email':'admin@example.test','password':'long-test-password'})[0],200)
+        admin_csrf=self.call(admin,'me')[1]['csrf']
+        doctor_id=next(x['id'] for x in self.call(admin,'admin/accounts')[1] if x['email']=='clinic@example.test')
+        self.assertEqual(self.call(admin,'admin/assign',{'id':me['id'],'clinician':doctor_id,'password':'long-test-password'},admin_csrf)[0],200)
+        self.assertEqual(self.call(patient,'triage',{'duration':'3 meses','newSymptoms':'sim','neurologicConcern':'sim','seriousCondition':'nao'},me['csrf'])[0],200)
+        self.assertEqual(self.call(patient,'me')[1]['state'],'suspenso')
+        self.assertEqual(self.call(doctor,'login',{'email':'clinic@example.test','password':'long-test-password'})[0],200)
+        doctor_csrf=self.call(doctor,'me')[1]['csrf']
+        case=next(x for x in self.call(doctor,'patients')[1] if x['id']==me['id'])
+        self.assertTrue(case['pendingRisk'])
+        decision={'id':me['id'],'state':'ativo','notes':'Avaliação individual fictícia documentada','plan':'Orientação individual fictícia','reviewed':True}
+        self.assertEqual(self.call(doctor,'review',decision,doctor_csrf)[0],400)
+        decision['urgentAssessed']=True
+        self.assertEqual(self.call(doctor,'review',decision,doctor_csrf)[0],200)
     def test_end_to_end_and_authorization(self):
         a,b,c=self.client(),self.client(),self.client()
         for client,email in [(a,'a@example.test'),(b,'b@example.test')]:
@@ -37,14 +90,14 @@ class API(unittest.TestCase):
         self.assertEqual(self.call(a,'message',{'notes':'Mensagem fictícia'},ua['csrf'])[0],200)
         self.assertEqual(self.call(a,'triage',{'duration':'3 meses','newSymptoms':'nao'},'wrong')[0],403)
         self.assertEqual(self.call(a,'triage',{'duration':'3 meses','newSymptoms':'nao'},ua['csrf'],'https://evil.test')[0],403)
-        self.assertEqual(self.call(a,'triage',{'duration':'3 meses','newSymptoms':'nao'},ua['csrf'])[0],200)
+        self.assertEqual(self.call(a,'triage',{'duration':'3 meses','newSymptoms':'nao','neurologicConcern':'nao','seriousCondition':'nao'},ua['csrf'])[0],200)
         self.assertEqual(self.call(a,'session/start',{},ua['csrf'])[0],403)
         self.assertEqual(self.call(a,'patients')[0],403)
         self.assertEqual(self.call(c,'login',{'email':'clinic@example.test','password':'long-test-password'})[0],200)
         uc=self.call(c,'me')[1]
         self.assertEqual(self.call(c,'review',{'id':ua['id'],'state':'ativo','notes':'Revisado','plan':'OrientaÃ§Ã£o individual de teste'},uc['csrf'])[0],403)
         with server.connect() as db: db.execute('INSERT INTO assignments VALUES(?,?)',(ua['id'],uc['id']))
-        self.assertEqual(self.call(c,'review',{'id':ua['id'],'state':'ativo','notes':'Revisado','plan':'OrientaÃ§Ã£o individual de teste'},uc['csrf'])[0],200)
+        self.assertEqual(self.call(c,'review',{'id':ua['id'],'state':'ativo','notes':'Revisado','plan':'OrientaÃ§Ã£o individual de teste','reviewed':True},uc['csrf'])[0],200)
         config={'module':1,'painProtection':6,'sleepProtection':1,'stressProtection':3,'painAdvance':1,'sleepAdvance':3,'stressAdvance':1,'allowAdvance':True,
                 'preparation':[{'title':'Preparação','instruction':'Teste fictício','seconds':5}],
                 'maintenance':[{'title':'Principal','instruction':'Teste fictício','seconds':5}],
@@ -75,11 +128,13 @@ class API(unittest.TestCase):
         with server.connect() as db:db.execute('UPDATE sessions SET completed=? WHERE id=?',(time.time()-86401,sid))
         self.assertEqual(self.call(a,'session/followup',{'id':sid,'skipped':True},ua['csrf'])[0],200)
         missing=self.call(a,'me')[1]
-        self.assertIsNone(missing['sessions'][0]['followup'])
+        self.assertIsNotNone(missing['sessions'][0]['followup'])
+        self.assertEqual(missing['state'],'em_revisao')
         self.assertEqual(json.loads(missing['records'][0]['payload'])['response'],'missing')
         self.assertIsNone(json.loads(missing['records'][0]['payload'])['pain'])
-        self.assertEqual(self.call(a,'session/start',{},ua['csrf'])[0],409)
         self.assertEqual(self.call(a,'session/followup',{'id':sid,'pain':2},ua['csrf'])[0],200)
+        self.assertEqual(self.call(a,'checkin',{'pain':0,'sleep':3,'stress':1},ua['csrf'])[0],403)
+        self.assertEqual(self.call(c,'review',{'id':ua['id'],'state':'ativo','notes':'Acompanhamento ausente revisado','plan':'Retomada orientada para teste','reviewed':True},uc['csrf'])[0],200)
         self.assertEqual(self.call(a,'checkin',{'pain':0,'sleep':3,'stress':1},ua['csrf'])[0],200)
         self.assertEqual(self.call(a,'protocol')[1]['lesson']['mode'],'protection')
         self.assertEqual(self.call(a,'protocol')[1]['progress']['1'],1)
@@ -100,7 +155,8 @@ class API(unittest.TestCase):
         self.call(c,'login',{'email':'clinic@example.test','password':'long-test-password'})
         uc=self.call(c,'me')[1]
         with server.connect() as db:db.execute('INSERT INTO assignments VALUES(?,?)',(ua['id'],uc['id']))
-        self.call(c,'review',{'id':ua['id'],'state':'ativo','notes':'Revisão fictícia','plan':'Orientação fictícia'},uc['csrf'])
+        self.assertEqual(self.call(a,'triage',{'duration':'3 meses','newSymptoms':'nao','neurologicConcern':'nao','seriousCondition':'nao'},ua['csrf'])[0],200)
+        self.call(c,'review',{'id':ua['id'],'state':'ativo','notes':'Revisão fictícia','plan':'Orientação fictícia','reviewed':True},uc['csrf'])
         step={'title':'Teste','instruction':'Somente teste','seconds':5}
         config={'module':1,'painProtection':6,'sleepProtection':1,'stressProtection':3,'painAdvance':1,'sleepAdvance':3,'stressAdvance':1,'allowAdvance':True,'preparation':[step],'maintenance':[step],'protection':[step],'challenge':[step]}
         self.call(c,'policy',{'id':ua['id'],'config':config},uc['csrf'])
@@ -121,8 +177,8 @@ class API(unittest.TestCase):
         self.assertEqual(self.call(a,'admin/accounts')[0],403)
         self.call(admin,'login',{'email':'admin@example.test','password':'long-test-password'})
         op=self.call(admin,'me')[1]
-        self.assertEqual(self.call(admin,'admin/role',{'id':ua['id'],'role':'clinician','password':'wrong'},op['csrf'])[0],403)
-        self.assertEqual(self.call(admin,'admin/role',{'id':ua['id'],'role':'clinician','password':'long-test-password'},op['csrf'])[0],200)
+        self.assertEqual(self.call(admin,'admin/role',{'id':ua['id'],'role':'physician','password':'wrong'},op['csrf'])[0],403)
+        self.assertEqual(self.call(admin,'admin/role',{'id':ua['id'],'role':'physician','password':'long-test-password'},op['csrf'])[0],200)
         self.assertEqual(self.call(a,'me')[0],401)
         self.call(a,'register',{'name':'Paciente teste','email':'assigned@example.test','password':'long-test-password','consent':True})
         patient=self.call(a,'me')[1]

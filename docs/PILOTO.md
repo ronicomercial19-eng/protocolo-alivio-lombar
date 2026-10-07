@@ -11,10 +11,11 @@ Importar ou sincronizar o repositório não confirma que Python está instalado.
 ## Antes de distribuir um link
 
 1. Definir APP_DB em volume persistente; arquivo num container efêmero não preserva contas após substituição da instância. Operar uma instância com SQLite. Não escalar réplicas independentes com bancos locais.
-2. Definir PUBLIC_ORIGIN com a URL exata. Atrás de proxy HTTPS confiável, definir TRUST_PROXY=1. Não confiar em proxies arbitrários.
+2. Definir PUBLIC_ORIGIN com a URL HTTPS exata que o navegador usará. O gateway compara a origem recebida com esse valor e emite o cookie seguro conforme essa URL. Configurar o proxy para preservar o cabeçalho Origin do navegador.
 3. No mesmo banco, criar administrador: `python server.py --admin EMAIL`. A senha é pedida no terminal; não existem senhas administrativas padrão.
-4. Criar a conta do profissional na interface e atribuir o papel em Gestão. Definir DEFAULT_CLINICIAN_EMAIL com essa conta. Isso atribui o participante à fila de revisão, sem liberar aula. Se o parâmetro estiver errado, o cadastro é recusado sem criar conta parcial. Sem esse parâmetro, atribuição manual e pendência visível ao participante.
-5. A equipe cadastra conteúdo e limites individuais e registra a revisão. Verificar toda a jornada com uma conta fictícia nova e repetir o login depois de reiniciar o serviço.
+4. Criar contas separadas para médico e profissional de educação física; o administrador define os papéis e atribuições em Gestão. Definir DEFAULT_CLINICIAN_EMAIL com a conta do médico. Isso atribui o participante à fila de revisão, sem liberar aula. Se o parâmetro estiver errado, o cadastro é recusado sem criar conta parcial. Sem esse parâmetro, atribuição manual e pendência visível ao participante. Contas antigas com papel `clinician` mantêm o acesso médico legado até migração explícita.
+5. Se a entrada precisar ser limitada, definir `PILOT_REQUIRE_INVITE=1` e gerar códigos únicos no banco persistente com `python server.py --create-invites 20`. Entregar cada código por um canal operado pela equipe; este aplicativo não envia convites. O código é consumido no cadastro.
+6. A equipe cadastra conteúdo e limites individuais e registra a revisão. Verificar toda a jornada com uma conta fictícia nova e repetir o login depois de reiniciar o serviço.
 
 ## Jornada e dossiê V3
 
