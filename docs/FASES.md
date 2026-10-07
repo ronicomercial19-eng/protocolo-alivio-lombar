@@ -49,3 +49,14 @@ Estado em 06/10/2026. Cada caixa só deve ser marcada após verificação no amb
 ## Critério para apresentar um link como piloto funcional
 
 O link deve permitir que uma conta fictícia percorra cadastro, triagem, atribuição, revisão, calibração, aula, registro de resposta e retorno de 24 horas; uma segunda conta profissional deve visualizar e decidir sobre o caso; o histórico deve permanecer após reinício. O teste deve ocorrer no endereço final, não apenas no computador de desenvolvimento.
+
+## UI por persona — implementação no Git
+
+- [x] Médico: guia visual com escopo, jornada, matriz de segurança, responsabilidades, limites da evidência e parecer persistente por item.
+- [x] Médico: fila de casos atribuídos com pesquisa local, eventos e mensagens destacados.
+- [x] Paciente: cadastro, triagem, aulas individualizadas, diário, registro imediato e de 24 horas, pausa e ajuda.
+- [x] Educação física: casos atribuídos, plano vigente, registros e observações para o médico, com limite de atuação explícito.
+- [x] Gestão: atribuição de responsáveis, papéis, métricas operacionais e simulação de capacidade.
+- [ ] Validar em celular no endereço final com os quatro papéis e casos fictícios.
+- [ ] Concluir e aprovar vídeos, dose, alternativas, critérios clínicos e canal real de suporte antes de pacientes reais.
+- [ ] Auditar referências completas e vincular cada alegação do produto à evidência apropriada.

@@ -28,7 +28,7 @@ app.querySelectorAll('nav [data-action]').forEach(b=>{if(b.dataset.action===page
 app.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>action(b.dataset.action));
 app.querySelectorAll('form').forEach(f=>f.onsubmit=submit);
 if(typeof bindProtocol==='function')bindProtocol();
-if(typeof bindCare==='function')bindCare();bindStaff();bindMedicalReview();appendEvidenceSources();bindCapacityPlanner();bindRoleControls();
+if(typeof bindCare==='function')bindCare();bindStaff();bindMedicalReview();bindCapacityPlanner();bindRoleControls();bindReviewUI();
 if(page==='focus'&&me){timer=setInterval(()=>{seconds++;const el=document.querySelector('#timer');if(el)el.textContent=`${Math.floor(seconds/60).toString().padStart(2,'0')}:${(seconds%60).toString().padStart(2,'0')}`},1000)}
 }
 function home(){return `<section class="hero"><div><span class="eyebrow">Cuidado que respeita seu ritmo</span><h1>Exercício guiado para sua lombar,<br>no seu ritmo.</h1><p>Programa para adultos com lombalgia crônica inespecífica, com orientação profissional, registro de resposta e progressão individualizada.</p>${btn('Começar meu acompanhamento →','signup')}<p class="muted">Oferta proposta: R$ 697 · contratação ainda indisponível</p></div><div class="hero-art"><div class="hero-brand">${logoMarkup}</div><p>Um passo de cada vez.</p></div></section><div class="cards">${[['01','Entender seu momento','Triagem e revisão profissional antes das sessões.'],['02','Mover com orientação','Uma orientação individual, com espaço para pausa e adaptação.'],['03','Acompanhar sua resposta','Seu diário ajuda a equipe a revisar o próximo passo.']].map(x=>`<article class="card"><span class="eyebrow">${x[0]}</span><h2>${x[1]}</h2><p>${x[2]}</p></article>`).join('')}</div>`}
