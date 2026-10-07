@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="Alívio Lombar">
+  <rect width="192" height="192" rx="42" fill="#1f5f63"/>
+  <g fill="#f6f1e7">
+    <rect x="42" y="41" width="76" height="18" rx="9"/>
+    <rect x="51" y="72" width="76" height="18" rx="9"/>
+    <rect x="60" y="103" width="76" height="18" rx="9"/>
+    <rect x="60" y="134" width="76" height="18" rx="9"/>
+  </g>
+  <path d="M138 31c30 42 29 89-1 130" fill="none" stroke="#c9803a" stroke-width="11" stroke-linecap="round"/>
+</svg>

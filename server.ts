@@ -1,136 +1,80 @@
 import express from 'express';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import bcrypt from 'bcryptjs';
-import { GoogleGenAI, Modality } from "@google/genai";
-import { WebSocketServer } from "ws";
-import { initializeApp } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
+import http from 'node:http';
+import { spawn, type ChildProcess } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-// Initialize Firebase Admin
-initializeApp();
-const adminAuth = getAuth();
-const adminDb = getFirestore();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const root = path.basename(currentDir) === 'dist' ? path.resolve(currentDir, '..') : currentDir;
+const port = Number(process.env.PORT || 3000);
+const backendPort = Number(process.env.BACKEND_PORT || 8001);
+const backend = `http://127.0.0.1:${backendPort}`;
+const origin = process.env.PUBLIC_ORIGIN || `http://127.0.0.1:${port}`;
+const python = process.env.PYTHON_BIN || (process.platform === 'win32' ? 'python' : 'python3');
 const app = express();
-const PORT = 3000;
+app.disable('x-powered-by');
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'same-origin');
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; media-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+  next();
+});
+let child: ChildProcess | undefined;
 
-app.use(express.json());
+function unavailable(res: express.Response) {
+  res.status(503).json({ error: 'Serviço clínico indisponível. Tente novamente em instantes.' });
+}
 
-// Initialize Gemini client
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: { 'User-Agent': 'aistudio-build' }
+app.use('/api', (req, res) => {
+  if (req.method === 'POST' && req.headers.origin !== origin) {
+    res.status(403).json({ error: 'Origem não permitida.' });
+    return;
   }
-});
-
-// API Routes
-const users = new Map(); // email -> {name, passwordHash, ...}
-
-app.post('/api/register', async (req, res) => {
-    const { name, email, password, consent } = req.body;
-    if (!name || !email || !password || !consent) return res.status(400).json({ error: 'Missing fields' });
-    if (users.has(email)) return res.status(409).json({ error: 'User already exists' });
-    const hashedPassword = await bcrypt.hash(password, 10);
-    users.set(email, { name, passwordHash: hashedPassword, role: 'participant', state: 'active' });
-    res.json({ ok: true });
-});
-
-app.post('/api/login', async (req, res) => {
-    const { email, password } = req.body;
-    const user = users.get(email);
-    if (!user || !(await bcrypt.compare(password, user.passwordHash))) return res.status(401).json({ error: 'Invalid credentials' });
-    res.json({ ok: true, name: user.name });
-});
-
-app.post('/api/login-google', async (req, res) => {
-    const { email, name } = req.body;
-    if (!email || !name) return res.status(400).json({ error: 'Missing fields' });
-    let user = users.get(email);
-    if (!user) {
-        user = { name, role: 'participant', state: 'active', passwordHash: 'google' };
-        users.set(email, user);
+  const headers: http.OutgoingHttpHeaders = { ...req.headers, host: `127.0.0.1:${backendPort}` };
+  delete headers.connection;
+  if (req.headers.origin) headers.origin = origin;
+  const upstream = http.request(`${backend}${req.originalUrl}`, { method: req.method, headers }, response => {
+    res.status(response.statusCode || 502);
+    for (const [name, value] of Object.entries(response.headers)) {
+      if (value !== undefined && !['connection', 'transfer-encoding'].includes(name)) res.setHeader(name, value);
     }
-    // Simple session simulation by returning user info
-    res.json({ ok: true, name: user.name, role: user.role, state: user.state, email: email });
+    response.pipe(res);
+  });
+  upstream.on('error', () => unavailable(res));
+  req.pipe(upstream);
 });
 
-app.get('/api/me', (req, res) => {
-    // In this simplified version, me is not really a session-based endpoint.
-    // For now, return a placeholder or handle it differently.
-    // Actually, app.js calls it to get the user.
-    res.json({ name: 'User', role: 'participant', state: 'active' });
-});
-
-app.post('/api/chat', async (req, res) => {
-    try {
-        const { messages, taskComplexity } = req.body;
-        // Model selection
-        let model = "gemini-3.5-flash";
-        if (taskComplexity === 'complex') model = "gemini-3.1-pro-preview";
-        else if (taskComplexity === 'fast') model = "gemini-3.1-flash-lite";
-
-        const response = await ai.models.generateContent({
-            model: model,
-            contents: messages.map((m: any) => ({ role: m.role, parts: [{ text: m.text }] })),
-            config: { 
-                systemInstruction: "Você é um assistente especializado em protocolo de alívio lombar. Analise o progresso, as variáveis do usuário e dê feedback guiado.",
-                tools: [{ googleSearch: {} }]
-            }
-        });
-        res.json({ text: response.text });
-    } catch (e: any) {
-        res.status(500).json({ error: e.message });
+app.use('/media', (req, res) => {
+  const upstream = http.request(`${backend}${req.originalUrl}`, {
+    method: req.method,
+    headers: { cookie: req.headers.cookie, range: req.headers.range },
+  }, response => {
+    res.status(response.statusCode || 502);
+    for (const [name, value] of Object.entries(response.headers)) {
+      if (value !== undefined && !['connection', 'transfer-encoding'].includes(name)) res.setHeader(name, value);
     }
+    response.pipe(res);
+  });
+  upstream.on('error', () => unavailable(res));
+  req.pipe(upstream);
 });
 
-app.post('/api/transcribe', async (req, res) => {
-    try {
-        const { audioData, mimeType } = req.body;
-        const response = await ai.models.generateContent({
-            model: "gemini-3.5-transcribe",
-            contents: { parts: [{ inlineData: { data: audioData, mimeType } }, { text: "Transcreva este áudio." }] }
-        });
-        res.json({ text: response.text });
-    } catch (e: any) {
-        res.status(500).json({ error: e.message });
-    }
+app.use(express.static(path.join(root, 'web')));
+app.get('*', (_req, res) => res.sendFile(path.join(root, 'web', 'index.html')));
+
+child = spawn(python, [path.join(root, 'server.py'), '--port', String(backendPort)], {
+  cwd: root,
+  env: { ...process.env, APP_ORIGIN: origin },
+  stdio: ['ignore', 'inherit', 'inherit'],
 });
+child.on('error', error => console.error('Falha ao iniciar serviço clínico:', error));
+const server = app.listen(port, '0.0.0.0', () => console.log(`App em ${port}; API clínica em ${backendPort}`));
 
-// Static files
-app.use(express.static(path.join(__dirname, 'web')));
-
-const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://0.0.0.0:${PORT}`);
-});
-
-// Live API WebSocket handler
-const wss = new WebSocketServer({ server, path: '/live' });
-wss.on("connection", async (clientWs) => {
-    const session = await ai.live.connect({
-        model: "gemini-3.8-live",
-        config: {
-            responseModalities: [Modality.AUDIO],
-            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } } },
-            systemInstruction: "Você é um assistente de voz para o protocolo de alívio lombar. Guie o usuário durante a execução dos exercícios.",
-        },
-        callbacks: {
-            onmessage: (message: any) => {
-                const audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-                if (audio) clientWs.send(JSON.stringify({ audio }));
-            },
-        },
-    });
-
-    clientWs.on("message", (data) => {
-        const { audio } = JSON.parse(data.toString());
-        session.sendRealtimeInput({
-            audio: { data: audio, mimeType: "audio/pcm;rate=16000" },
-        });
-    });
-});
+function shutdown() {
+  child?.kill();
+  server.close(() => process.exit(0));
+}
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
+process.on('message', message => { if (message === 'shutdown') shutdown(); });
