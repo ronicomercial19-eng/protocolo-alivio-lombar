@@ -30,4 +30,10 @@ test('scripts da interface compartilham funções da entrada e do guia', () => {
   const guide = vm.runInContext('medicalGuide()', context);
   assert.match(guide, /Parecer por item/);
   assert.equal((guide.match(/Produção pendente/g) || []).length, 9);
+  vm.runInContext(`me={sessions:[]}; journey={modules:[{id:1,name:'Etapa 1',weeks:'Semana 1'}],module:1,progress:{},active:false,configured:true,ongoing:123}`,context);
+  const paused = vm.runInContext('protocol()',context);
+  assert.match(paused,/sessão está pausada/);
+  assert.doesNotMatch(paused,/lesson-resume/);
+  vm.runInContext('journey.active=true',context);
+  assert.match(vm.runInContext('protocol()',context),/lesson-resume/);
 });

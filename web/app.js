@@ -9,15 +9,16 @@ function notice(s){const n=document.querySelector('#notice');clearTimeout(notice
 async function api(path, body) {
   const headers = body ? { 'Content-Type': 'application/json', 'X-CSRF-Token': me?.csrf || '' } : {};
   
-  const r = await fetch('/api/' + path, {
+  let r;
+  try { r = await fetch('/api/' + path, {
     method: body ? 'POST' : 'GET',
     headers,
     credentials: 'same-origin',
     body: body ? JSON.stringify(body) : undefined
-  });
-  
-  const data = await r.json();
-  if (!r.ok) throw Error(data.error);
+  }); } catch { throw Error('Não foi possível conectar. Confira sua internet e tente novamente.'); }
+  let data;
+  try { data = await r.json(); } catch { throw Error('O serviço está indisponível no momento. Tente novamente mais tarde.'); }
+  if (!r.ok) throw Error(data.error || 'Não foi possível concluir. Tente novamente.');
   return data;
 }
 async function refresh(){me=await api('me');render()}

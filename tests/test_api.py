@@ -231,9 +231,12 @@ class API(unittest.TestCase):
         self.call(a,'checkin',{'pain':0,'sleep':3,'stress':1,'newSymptoms':'nao'},ua['csrf'])
         sid=self.call(a,'session/start',{},ua['csrf'])[1]['id']
         self.assertEqual(self.call(a,'session/complete',{'id':sid,'pain':2,'effort':4,'newSymptoms':'nao'},ua['csrf'])[0],200)
+        self.assertEqual(self.call(a,'experience',{'session':sid,'rating':True},ua['csrf'])[0],400)
+        self.assertEqual(self.call(a,'experience',{'session':sid,'rating':8,'notes':'Teste fictício'},ua['csrf'])[0],200)
+        self.assertEqual(self.call(a,'experience',{'session':sid,'rating':8},ua['csrf'])[0],409)
         rows=self.call(c,'patients')[1]
         self.assertFalse(next(p for p in rows if p['id']==ua['id'])['policy']['allowAdvance'])
-        payload=json.loads(self.call(a,'me')[1]['records'][0]['payload'])
+        payload=json.loads(next(r for r in self.call(a,'me')[1]['records'] if r['kind']=='session')['payload'])
         self.assertEqual(payload['effort'],4)
         self.assertEqual(payload['effortScale'],'numeric-authorial-0-10')
         self.assertFalse(self.call(a,'protocol')[1]['calibrated'])

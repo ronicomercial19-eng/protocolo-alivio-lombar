@@ -276,6 +276,15 @@ class Handler(BaseHTTPRequestHandler):
                     db.execute('INSERT INTO records(user_id,kind,payload,created) VALUES(?,?,?,?)',(target,'message',json.dumps({'notes':note,'sender':user['role'],'author':user['name']}),time.time()))
                     audit(db,uid,target,'message recorded')
                     return self.send(200,{'ok':True})
+                if self.path == '/api/experience' and self.command == 'POST':
+                    if user['role']!='participant': raise ApiError(403,'Avaliação disponível para participantes.')
+                    rating=body.get('rating'); session=body.get('session')
+                    if type(rating) is not int or not 0<=rating<=10: raise ApiError(400,'Escolha uma nota de 0 a 10.')
+                    if not db.execute('SELECT 1 FROM sessions WHERE id=? AND user_id=? AND completed IS NOT NULL',(session,uid)).fetchone(): raise ApiError(404,'Sessão concluída não encontrada.')
+                    if db.execute("SELECT 1 FROM records WHERE user_id=? AND kind='experience' AND json_extract(payload,'$.session')=?",(uid,session)).fetchone(): raise ApiError(409,'Esta sessão já recebeu uma avaliação.')
+                    db.execute('INSERT INTO records(user_id,kind,payload,created) VALUES(?,?,?,?)',(uid,'experience',json.dumps({'session':session,'rating':rating,'notes':str(body.get('notes',''))[:1000]}),time.time()))
+                    audit(db,uid,uid,'experience feedback recorded')
+                    return self.send(200,{'ok':True})
                 if self.path == '/api/between' and self.command == 'POST':
                     activity=body.get('activity')
                     if activity not in ('descanso','caminhada','bicicleta','outra'): raise ApiError(400,'Escolha como foi seu dia.')
