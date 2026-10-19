@@ -1,10 +1,11 @@
 async function openWorkspace(){if(['physician','clinician'].includes(me.role)){patients=await api('patients');evaluations=await api('evaluation');page='team'}else if(me.role==='educator'){educatorCases=await api('educator/patients');page='educator'}else if(me.role==='admin'){adminAccounts=await api('admin/accounts');adminMetrics=await api('admin/metrics');page='management'}else page='dashboard'}
 let me=null, page='home', register=false, patients=[], timer=null, seconds=0;
+let lastRenderedPage=null, lastRenderedAssessmentStep=null, noticeTimer=null;
 const app=document.querySelector('#app');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const date=t=>new Date(t*1000).toLocaleString('pt-BR');
 const states={triagem_pendente:'Triagem pendente',em_revisao:'Em revisão profissional',ativo:'Programa ativo',suspenso:'Programa suspenso',encaminhado:'Encaminhamento recomendado'};
-function notice(s){const n=document.querySelector('#notice');n.textContent=s;n.style.display='block';setTimeout(()=>n.style.display='none',6000)}
+function notice(s){const n=document.querySelector('#notice');clearTimeout(noticeTimer);n.textContent=s;n.style.display='block';noticeTimer=setTimeout(()=>n.style.display='none',6000)}
 async function api(path, body) {
   const headers = body ? { 'Content-Type': 'application/json', 'X-CSRF-Token': me?.csrf || '' } : {};
   
@@ -29,6 +30,8 @@ app.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>action(b.dataset.
 app.querySelectorAll('form').forEach(f=>f.onsubmit=submit);
 if(typeof bindProtocol==='function')bindProtocol();
 if(typeof bindCare==='function')bindCare();bindStaff();bindMedicalReview();bindCapacityPlanner();bindRoleControls();bindReviewUI();
+if(lastRenderedPage!==null && (lastRenderedPage!==page || (page==='triage' && lastRenderedAssessmentStep!==assessmentStep))){app.querySelector('main')?.focus()}
+lastRenderedPage=page;lastRenderedAssessmentStep=page==='triage'?assessmentStep:null;
 if(page==='focus'&&me){timer=setInterval(()=>{seconds++;const el=document.querySelector('#timer');if(el)el.textContent=`${Math.floor(seconds/60).toString().padStart(2,'0')}:${(seconds%60).toString().padStart(2,'0')}`},1000)}
 }
 function home(){return `<section class="hero"><div><span class="eyebrow">Cuidado que respeita seu ritmo</span><h1>Exercício guiado para sua lombar,<br>no seu ritmo.</h1><p>Programa para adultos com lombalgia crônica inespecífica, com orientação profissional, registro de resposta e progressão individualizada.</p>${btn('Começar meu acompanhamento →','signup')}<p class="muted">Oferta proposta: R$ 697 · contratação ainda indisponível</p></div><div class="hero-art"><div class="hero-brand">${logoMarkup}</div><p>Um passo de cada vez.</p></div></section><div class="cards">${[['01','Entender seu momento','Triagem e revisão profissional antes das sessões.'],['02','Mover com orientação','Uma orientação individual, com espaço para pausa e adaptação.'],['03','Acompanhar sua resposta','Seu diário ajuda a equipe a revisar o próximo passo.']].map(x=>`<article class="card"><span class="eyebrow">${x[0]}</span><h2>${x[1]}</h2><p>${x[2]}</p></article>`).join('')}</div>`}

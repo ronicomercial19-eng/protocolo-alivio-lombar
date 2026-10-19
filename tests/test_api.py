@@ -43,7 +43,7 @@ class API(unittest.TestCase):
         self.assertGreaterEqual(metrics['states']['em_revisao'],1)
         self.assertGreaterEqual(metrics['funnel']['registered'],metrics['funnel']['triaged'])
         self.assertGreaterEqual(metrics['funnel']['triaged'],1)
-        self.assertEqual(metrics['funnel']['answeredFollowup'],0)
+        self.assertLessEqual(metrics['funnel']['answeredFollowup'],metrics['funnel']['completedSession'])
     def test_educator_cannot_release_clinical_care(self):
         educator,patient,admin=self.client(),self.client(),self.client()
         self.assertEqual(self.call(educator,'register',{'name':'Educador fictício','email':'educator@example.test','password':'long-test-password','consent':True})[0],200)
@@ -63,6 +63,15 @@ class API(unittest.TestCase):
         cases=self.call(educator,'educator/patients')[1]
         self.assertEqual(len(cases),1)
         self.assertFalse(any(r['kind']=='triage' for r in cases[0]['records']))
+        doctor=self.client()
+        self.call(doctor,'login',{'email':'clinic@example.test','password':'long-test-password'})
+        clinician=self.call(doctor,'me')[1]
+        with server.connect() as db: db.execute('INSERT INTO assignments VALUES(?,?)',(patient_id,clinician['id']))
+        case=next(x for x in self.call(doctor,'patients')[1] if x['id']==patient_id)
+        self.assertEqual(case['pendingEducatorNotes'],1)
+        self.assertEqual(self.call(doctor,'review',{'id':patient_id,'state':'suspenso','notes':'Observação fictícia revisada'},clinician['csrf'])[0],200)
+        case=next(x for x in self.call(doctor,'patients')[1] if x['id']==patient_id)
+        self.assertEqual(case['pendingEducatorNotes'],0)
     def test_neurologic_concern_pauses_until_assessed(self):
         patient,admin,doctor=self.client(),self.client(),self.client()
         self.assertEqual(self.call(patient,'register',{'name':'Risco fictício','email':'risk@example.test','password':'long-test-password','consent':True})[0],200)
@@ -109,25 +118,26 @@ class API(unittest.TestCase):
         self.assertEqual(self.call(a,'policy',{'id':ua['id'],'config':config},ua['csrf'])[0],403)
         self.assertEqual(self.call(c,'policy',{'id':ua['id'],'config':config},uc['csrf'])[0],200)
         self.assertEqual(self.call(a,'session/start',{},ua['csrf'])[0],409)
-        self.assertEqual(self.call(a,'checkin',{'pain':False,'sleep':3,'stress':1},ua['csrf'])[0],400)
-        self.assertEqual(self.call(a,'checkin',{'pain':0,'sleep':3,'stress':1},ua['csrf'])[0],200)
+        self.assertEqual(self.call(a,'checkin',{'pain':False,'sleep':3,'stress':1,'newSymptoms':'nao'},ua['csrf'])[0],400)
+        self.assertEqual(self.call(a,'checkin',{'pain':0,'sleep':3,'stress':1,'newSymptoms':'nao'},ua['csrf'])[0],200)
         lesson=self.call(a,'protocol')[1]['lesson']
         self.assertEqual(lesson['mode'],'advance');self.assertEqual(len(lesson['blocks']),3)
-        self.assertEqual(self.call(a,'checkin',{'pain':7,'sleep':3,'stress':1},ua['csrf'])[0],200)
+        self.assertEqual(self.call(a,'checkin',{'pain':7,'sleep':3,'stress':1,'newSymptoms':'nao'},ua['csrf'])[0],200)
         self.assertEqual(self.call(a,'protocol')[1]['lesson']['mode'],'protection')
-        self.assertEqual(self.call(a,'checkin',{'pain':3,'sleep':2,'stress':2},ua['csrf'])[0],200)
+        self.assertEqual(self.call(a,'checkin',{'pain':3,'sleep':2,'stress':2,'newSymptoms':'nao'},ua['csrf'])[0],200)
         self.assertEqual(self.call(a,'protocol')[1]['lesson']['mode'],'maintenance')
         self.assertEqual(self.call(c,'policy',{'id':ua['id'],'config':config},uc['csrf'])[0],200)
         self.assertFalse(self.call(a,'protocol')[1]['calibrated'])
-        self.assertEqual(self.call(a,'checkin',{'pain':0,'sleep':3,'stress':1},ua['csrf'])[0],200)
+        self.assertEqual(self.call(a,'checkin',{'pain':0,'sleep':3,'stress':1,'newSymptoms':'nao'},ua['csrf'])[0],200)
         sid=self.call(a,'session/start',{},ua['csrf'])[1]['id']
-        self.assertEqual(self.call(a,'checkin',{'pain':3,'sleep':2,'stress':2},ua['csrf'])[0],409)
+        self.assertEqual(self.call(a,'checkin',{'pain':3,'sleep':2,'stress':2,'newSymptoms':'nao'},ua['csrf'])[0],409)
         self.assertEqual(self.call(a,'session/complete',{'id':sid,'pain':3},ua['csrf'])[0],400)
         self.assertEqual(self.call(b,'session/complete',{'id':sid,'pain':3},ub['csrf'])[0],404)
         self.assertEqual(self.call(a,'session/complete',{'id':sid,'pain':11},ua['csrf'])[0],400)
         self.assertEqual(self.call(a,'session/complete',{'id':sid,'pain':3,'effort':'dificil'},ua['csrf'])[0],200)
         self.assertEqual(self.call(a,'session/followup',{'id':sid,'pain':3},ua['csrf'])[0],409)
-        self.assertEqual(self.call(a,'session/start',{},ua['csrf'])[0],409)
+        self.assertEqual(self.call(a,'me')[1]['state'],'em_revisao')
+        self.assertEqual(self.call(a,'session/start',{},ua['csrf'])[0],403)
         with server.connect() as db:db.execute('UPDATE sessions SET completed=? WHERE id=?',(time.time()-86401,sid))
         self.assertEqual(self.call(a,'session/followup',{'id':sid,'skipped':True},ua['csrf'])[0],200)
         missing=self.call(a,'me')[1]
@@ -136,12 +146,12 @@ class API(unittest.TestCase):
         self.assertEqual(json.loads(missing['records'][0]['payload'])['response'],'missing')
         self.assertIsNone(json.loads(missing['records'][0]['payload'])['pain'])
         self.assertEqual(self.call(a,'session/followup',{'id':sid,'pain':2},ua['csrf'])[0],200)
-        self.assertEqual(self.call(a,'checkin',{'pain':0,'sleep':3,'stress':1},ua['csrf'])[0],403)
+        self.assertEqual(self.call(a,'checkin',{'pain':0,'sleep':3,'stress':1,'newSymptoms':'nao'},ua['csrf'])[0],403)
         self.assertEqual(self.call(c,'review',{'id':ua['id'],'state':'ativo','notes':'Acompanhamento ausente revisado','plan':'Retomada orientada para teste','reviewed':True},uc['csrf'])[0],200)
-        self.assertEqual(self.call(a,'checkin',{'pain':0,'sleep':3,'stress':1},ua['csrf'])[0],200)
+        self.assertEqual(self.call(a,'checkin',{'pain':0,'sleep':3,'stress':1,'newSymptoms':'nao'},ua['csrf'])[0],200)
         self.assertEqual(self.call(a,'protocol')[1]['lesson']['mode'],'protection')
         self.assertEqual(self.call(a,'protocol')[1]['progress']['1'],1)
-        self.assertEqual(len(self.call(c,'patients')[1]),1)
+        self.assertTrue(any(case['id']==ua['id'] for case in self.call(c,'patients')[1]))
         self.assertEqual(self.call(b,'me')[1]['sessions'],[])
         self.assertEqual(self.call(a,'pause',{},ua['csrf'])[0],200)
         self.assertEqual(self.call(a,'me')[1]['state'],'suspenso')
@@ -150,6 +160,61 @@ class API(unittest.TestCase):
         self.assertEqual(self.call(a,'logout',{},ua['csrf'])[0],200)
         self.assertEqual(self.call(a,'me')[0],401)
 
+
+    def test_pain_checkin_blocks_above_eight(self):
+        patient,doctor=self.client(),self.client()
+        self.assertEqual(self.call(patient,'register',{'name':'Segurança teste','email':'pain-gate@example.test','password':'long-test-password','consent':True})[0],200)
+        user=self.call(patient,'me')[1]
+        self.call(doctor,'login',{'email':'clinic@example.test','password':'long-test-password'})
+        clinician=self.call(doctor,'me')[1]
+        with server.connect() as db: db.execute('INSERT INTO assignments VALUES(?,?)',(user['id'],clinician['id']))
+        self.call(patient,'triage',{'duration':'3 meses','newSymptoms':'nao','neurologicConcern':'nao','seriousCondition':'nao'},user['csrf'])
+        self.call(doctor,'review',{'id':user['id'],'state':'ativo','notes':'Revisão fictícia','plan':'Orientação fictícia','reviewed':True},clinician['csrf'])
+        step={'title':'Teste','instruction':'Somente teste','seconds':5}
+        config={'module':1,'painProtection':6,'sleepProtection':1,'stressProtection':3,'painAdvance':1,'sleepAdvance':3,'stressAdvance':1,'allowAdvance':False,'preparation':[step],'maintenance':[step],'protection':[step],'challenge':[]}
+        self.assertEqual(self.call(doctor,'policy',{'id':user['id'],'config':config},clinician['csrf'])[0],200)
+        status,result=self.call(patient,'checkin',{'pain':8,'sleep':2,'stress':2,'newSymptoms':'nao'},user['csrf'])
+        self.assertEqual(status,200); self.assertFalse(result.get('blocked',False))
+        status,result=self.call(patient,'checkin',{'pain':9,'sleep':2,'stress':2,'newSymptoms':'nao'},user['csrf'])
+        self.assertEqual(status,200); self.assertTrue(result['blocked'])
+        self.assertEqual(self.call(patient,'me')[1]['state'],'em_revisao')
+        self.assertEqual(self.call(patient,'session/start',{},user['csrf'])[0],403)
+        case=next(p for p in self.call(doctor,'patients')[1] if p['id']==user['id'])
+        self.assertGreater(case['pendingEvents'],0)
+        self.assertEqual(self.call(doctor,'review',{'id':user['id'],'state':'ativo','notes':'Evento fictício revisado','plan':'Orientação individual de teste','reviewed':True},clinician['csrf'])[0],200)
+        status,result=self.call(patient,'checkin',{'pain':2,'sleep':2,'stress':2,'newSymptoms':'nao_sei'},user['csrf'])
+        self.assertEqual(status,200); self.assertTrue(result['blocked'])
+        self.assertEqual(self.call(patient,'session/start',{},user['csrf'])[0],403)
+
+    def test_followup_symptoms_require_review_without_clearing_a_pause(self):
+        patient,doctor=self.client(),self.client()
+        self.call(patient,'register',{'name':'Pessoa fictícia','email':'followup-safety@example.test','password':'long-test-password','consent':True})
+        user=self.call(patient,'me')[1]
+        self.call(doctor,'login',{'email':'clinic@example.test','password':'long-test-password'})
+        clinician=self.call(doctor,'me')[1]
+        with server.connect() as db: db.execute('INSERT INTO assignments VALUES(?,?)',(user['id'],clinician['id']))
+        self.call(patient,'triage',{'duration':'3 meses','newSymptoms':'nao','neurologicConcern':'nao','seriousCondition':'nao'},user['csrf'])
+        self.call(doctor,'review',{'id':user['id'],'state':'ativo','notes':'Avaliação fictícia','plan':'Orientação fictícia','reviewed':True},clinician['csrf'])
+        step={'title':'Teste','instruction':'Teste fictício','seconds':5}
+        config={'module':1,'painProtection':6,'sleepProtection':1,'stressProtection':3,'painAdvance':1,'sleepAdvance':3,'stressAdvance':1,'allowAdvance':False,'preparation':[step],'maintenance':[step],'protection':[step],'challenge':[step]}
+        self.assertEqual(self.call(doctor,'policy',{'id':user['id'],'config':config},clinician['csrf'])[0],200)
+        for symptom,paused in [('sim',False),('nao_sei',True)]:
+            self.assertEqual(self.call(patient,'checkin',{'pain':0,'sleep':3,'stress':1,'newSymptoms':'nao'},user['csrf'])[0],200)
+            sid=self.call(patient,'session/start',{},user['csrf'])[1]['id']
+            self.assertEqual(self.call(patient,'session/complete',{'id':sid,'pain':2,'effort':2,'newSymptoms':'nao'},user['csrf'])[0],200)
+            with server.connect() as db: db.execute('UPDATE sessions SET completed=? WHERE id=?',(time.time()-86401,sid))
+            if paused: self.assertEqual(self.call(patient,'pause',{},user['csrf'])[0],200)
+            self.assertEqual(self.call(patient,'session/followup',{'id':sid,'pain':1,'newSymptoms':symptom},user['csrf'])[0],200)
+            self.assertEqual(self.call(patient,'me')[1]['state'],'suspenso' if paused else 'em_revisao')
+            self.assertEqual(self.call(patient,'session/start',{},user['csrf'])[0],403)
+            if not paused:
+                self.assertEqual(self.call(doctor,'review',{'id':user['id'],'state':'ativo','notes':'Sintomas revisados em teste','plan':'Orientação fictícia','reviewed':True},clinician['csrf'])[0],200)
+
+    def test_interface_assets_are_served(self):
+        for name in ('review-ui.js','review-ui.css','experience.css'):
+            with urllib.request.urlopen('http://127.0.0.1:8081/'+name) as response:
+                self.assertEqual(response.status,200)
+                self.assertGreater(len(response.read()),0)
 
     def test_single_use_challenge_and_numeric_effort(self):
         a,c=self.client(),self.client()
@@ -163,7 +228,7 @@ class API(unittest.TestCase):
         step={'title':'Teste','instruction':'Somente teste','seconds':5}
         config={'module':1,'painProtection':6,'sleepProtection':1,'stressProtection':3,'painAdvance':1,'sleepAdvance':3,'stressAdvance':1,'allowAdvance':True,'preparation':[step],'maintenance':[step],'protection':[step],'challenge':[step]}
         self.call(c,'policy',{'id':ua['id'],'config':config},uc['csrf'])
-        self.call(a,'checkin',{'pain':0,'sleep':3,'stress':1},ua['csrf'])
+        self.call(a,'checkin',{'pain':0,'sleep':3,'stress':1,'newSymptoms':'nao'},ua['csrf'])
         sid=self.call(a,'session/start',{},ua['csrf'])[1]['id']
         self.assertEqual(self.call(a,'session/complete',{'id':sid,'pain':2,'effort':4,'newSymptoms':'nao'},ua['csrf'])[0],200)
         rows=self.call(c,'patients')[1]

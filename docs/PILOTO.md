@@ -40,3 +40,9 @@ Esta distribuição mantém o aviso de uso com dados fictícios. Antes de dados 
 `docker run --rm -p 3000:3000 -v lombar-data:/app/data alivio-lombar`
 
 O volume preserva o banco. Esses comandos não configuram HTTPS ou equipe automaticamente. Docker não foi executado nesta estação; TypeScript e testes do gateway foram executados.
+
+## Regras de segurança propostas para o piloto
+
+Dor informada **acima de 8** antes da sessão, ou sintoma novo/incerto, mantém o programa em revisão profissional. A regra acima de 8 significa 9 ou 10 na escala inteira; o tratamento de 8 precisa de decisão clínica explícita. Após sessão, dor maior que 2, sintomas novos/incertos ou resposta não fornecida coloca o programa em revisão antes de outra sessão. A pessoa deve procurar a equipe; ainda não há alerta externo nem prazo de resposta configurado. A verificação de 24 horas continua aplicável. Os limiares são regras operacionais propostas, não cortes clínicos validados e não excluem sinais de urgência.
+
+O médico atribuído registra a decisão de revisão; a autorização de liberação por outros profissionais não foi implementada. A representação de três níveis, conteúdo aprovado e revisão ao concluir cada nível ainda precisam ser especificados e validados antes de implementação ou uso real.

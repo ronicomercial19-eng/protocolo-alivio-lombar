@@ -151,7 +151,7 @@ class Handler(BaseHTTPRequestHandler):
                         self.wfile.write(chunk);remaining-=len(chunk)
                 return
             if self.command == 'GET' and not self.path.startswith('/api/'):
-                files = {'/':'index.html','/app.js':'app.js','/protocol.js':'protocol.js','/care.js':'care.js','/staff.js':'staff.js','/medical.js':'medical.js','/educator.js':'educator.js','/startup.js':'startup.js','/style.css':'style.css','/brand.css':'brand.css','/startup.css':'startup.css','/manifest.json':'manifest.json','/icon.svg':'icon.svg'}
+                files = {'/':'index.html','/app.js':'app.js','/protocol.js':'protocol.js','/care.js':'care.js','/staff.js':'staff.js','/medical.js':'medical.js','/educator.js':'educator.js','/startup.js':'startup.js','/review-ui.js':'review-ui.js','/review-ui.css':'review-ui.css','/experience.css':'experience.css','/style.css':'style.css','/brand.css':'brand.css','/startup.css':'startup.css','/manifest.json':'manifest.json','/icon.svg':'icon.svg'}
                 name = files.get(self.path)
                 if not name: raise ApiError(404,'Não encontrado')
                 mime='text/css' if name.endswith('.css') else 'text/javascript' if name.endswith('.js') else 'application/manifest+json' if name.endswith('.json') else 'image/svg+xml' if name.endswith('.svg') else 'text/html'
@@ -296,10 +296,18 @@ class Handler(BaseHTTPRequestHandler):
                 if self.path == '/api/checkin' and self.command == 'POST':
                     pain,sleep,stress=body.get('pain'),body.get('sleep'),body.get('stress')
                     if any(type(v) is not int for v in (pain,sleep,stress)) or not 0<=pain<=10 or not 1<=sleep<=3 or not 1<=stress<=3: raise ApiError(400,'Responda dor, sono e disposição.')
+                    symptoms=body.get('newSymptoms')
+                    if symptoms not in ('sim','nao','nao_sei'): raise ApiError(400,'Informe se há sintomas novos ou diferentes.')
                     policy=db.execute('SELECT * FROM protocol_policies WHERE user_id=?',(uid,)).fetchone()
                     if user['state']!='ativo' or not policy: raise ApiError(403,'Sua equipe ainda precisa preparar a aula individual.')
                     latest=db.execute('SELECT completed,followup FROM sessions WHERE user_id=? ORDER BY id DESC LIMIT 1',(uid,)).fetchone()
                     if latest and (latest['completed'] is None or latest['followup'] is None): raise ApiError(409,'Retome sua sessão ou preencha o acompanhamento anterior.')
+                    # Product policy, not a validated clinical cut-off: pain above 8 pauses for review.
+                    if pain > 8 or symptoms != 'nao':
+                        db.execute("UPDATE users SET state='em_revisao' WHERE id=?", (uid,))
+                        db.execute('INSERT INTO records(user_id,kind,payload,created) VALUES(?,?,?,?)', (uid,'event',json.dumps({'notes':'Revisão necessária: dor acima de 8 ou sintoma novo ou incerto antes da sessão.','pain':pain,'newSymptoms':symptoms,'source':'checkin'}),time.time()))
+                        audit(db,uid,uid,'high pain checkin requires review')
+                        return self.send(200,{'ok':True,'blocked':True})
                     previous=db.execute("SELECT payload FROM records WHERE user_id=? AND kind='session' ORDER BY id DESC LIMIT 1",(uid,)).fetchone()
                     effort=json.loads(previous['payload']).get('effort') if previous else None
                     mode,snapshot=lesson_snapshot(json.loads(policy['config']),pain,sleep,stress,effort)
@@ -378,7 +386,9 @@ class Handler(BaseHTTPRequestHandler):
                         if not session['completed'] or time.time()<session['completed']+86400: raise ApiError(409,'Acompanhamento disponível 24 horas após a conclusão.')
                         if session['followup']: return self.send(200,{'ok':True})
                         db.execute('UPDATE sessions SET followup=? WHERE id=?',(time.time(),session['id']))
-                        if skipped: db.execute("UPDATE users SET state='em_revisao' WHERE id=?",(uid,))
+                        if skipped or body.get('newSymptoms','nao_sei') != 'nao':
+                            db.execute("UPDATE users SET state='em_revisao' WHERE id=? AND state='ativo'",(uid,))
+                            audit(db,uid,uid,'followup response requires review')
                     else:
                         if session['completed']: return self.send(200,{'ok':True})
                         if not skipped and db.execute('SELECT 1 FROM lesson_sessions WHERE session_id=?',(session['id'],)).fetchone() and effort is None: raise ApiError(400,'Informe como sentiu o esforço.')
@@ -389,6 +399,11 @@ class Handler(BaseHTTPRequestHandler):
                             config=json.loads(policy['config']);config['allowAdvance']=False
                             db.execute('UPDATE protocol_policies SET config=?,updated=? WHERE user_id=?',(json.dumps(config),time.time(),uid))
                             audit(db,uid,uid,'single challenge authorization consumed')
+                    # Missing responses, new/uncertain symptoms or post-session pain above 2
+                    # require a documented review before another session.
+                    if not followup and (skipped or pain > 2 or body.get('newSymptoms','nao_sei') != 'nao'):
+                        db.execute("UPDATE users SET state='em_revisao' WHERE id=? AND state='ativo'",(uid,))
+                        audit(db,uid,uid,'post-session response requires review')
                     db.execute('INSERT INTO records(user_id,kind,payload,created) VALUES(?,?,?,?)',(uid,'followup' if followup else 'session',json.dumps({'session':session['id'],'pain':pain,'scale':'NRS 0-10','recall':'agora','effort':effort,'effortScale':'numeric-authorial-0-10' if isinstance(effort,(int,float)) else 'categorical-authorial-1','response':'missing' if skipped else 'answered','newSymptoms':body.get('newSymptoms','nao_sei'),'function':str(body.get('function',''))[:1000],'notes':str(body.get('notes',''))[:2000]}),time.time()))
                     audit(db,uid,uid,'followup' if followup else 'session completed')
                     return self.send(200,{'ok':True})
@@ -427,6 +442,7 @@ class Handler(BaseHTTPRequestHandler):
                         p['pendingEvents']=sum(x['kind'] in ('event','pause') and x['created']>latest_review for x in p['records'])
                         p['pendingRisk']=any(x['kind']=='triage' and x['created']>latest_review and (json.loads(x['payload']).get('urgentConcern') or json.loads(x['payload']).get('seriousCondition')=='sim') for x in p['records'])
                         p['pendingEvents']+=int(p['pendingRisk'])
+                        p['pendingEducatorNotes']=sum(x['kind']=='educator_note' and x['created']>latest_review for x in p['records'])
                         p['pendingMessages']=sum(x['kind']=='message' and json.loads(x['payload']).get('sender')=='participant' and x['created']>last_reply for x in p['records'])
                         p['pendingFollowup']=db.execute('SELECT count(*) FROM sessions WHERE user_id=? AND completed IS NOT NULL AND followup IS NULL',(r['id'],)).fetchone()[0]
                         patients.append(p)
